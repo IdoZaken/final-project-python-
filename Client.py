@@ -111,5 +111,5 @@ class device(ABC):
 
 
 
-    def download_file(self):
+    # def download_file(self):
 
