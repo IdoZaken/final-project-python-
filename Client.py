@@ -11,20 +11,16 @@ import dill as pickle
 import socket
 import os
 import time
-import zlib
+from pathlib import Path
 
 
 
 class device(ABC):
 
     # device constructor
-    def __init__(self, interval, ID, description, IP):
+    def __init__(self,  ID, IP):
         self.ID = ID
-        self.description = description
-        self.dataType = self.dataType
-        self.mode = "standBy"  #device state: standby= regular mode (waiting for something to happen)
         self.masterIP = IP
-        print("device: init device:", description)
 
     def save(self, path):
         with open(path, 'wb') as f:
@@ -98,7 +94,7 @@ class device(ABC):
             if str(total_size) != conf.decode('utf8'):              #in case connection lost during sendig
                 print("Falied to send all files, auto try again after 5sec")
                 time.sleep(5)
-                self.sendData('readyFiles')
+                self.sendData('sendFiles')
 
         sock.close()
         print("ALL FILES RECEIVED SUCCESSFULLY")
@@ -108,6 +104,15 @@ class device(ABC):
             os.remove(os.path.join(path, f))
 
         print("File sent!")
+
+
+    def change_name(self):
+        for files in os.listdir():
+            filename, file_extension = os.path.splitext(files)
+            date = datetime.datetime.now().strftime("%d%m%Y-%H%M%S")
+            temp_name = filename + "-" + self.ID + "-" + date + "." + file_extension
+            os.rename(files, temp_name)
+
 
 
 
