@@ -3,8 +3,8 @@
 #impot tensiometer to make this device be able to connect to a tensiometer sensor
 
 import datetime
-import device
-from switch import switch #import class switch from file switch
+from Client import device
+from switch import Switch #import class switch from file switch
 import pickle #saving object for other sessions
 import dill as pickle
 import os.path
@@ -22,6 +22,7 @@ from pathlib import Path
 
 
 option = None # :-)
+myDevice = None
 
 while(True):
     if option == None:
@@ -35,16 +36,16 @@ while(True):
         if option == "2":
             option = "Upload File"
         if option == "3":
-            option == "Download File"
+            option = "Download File"
 
-    for case in switch(option):
+    with Switch(option) as case:
 
         if case('first start'):
             print("\ncase: Upload File")
             # todo description cant include dots
-            myDevice = Device("0011",  "10.0.2.15") #(self, id,  masterIP)create device instance to actually run in background and gather data
-            option == "standBy"
-            break
+            myDevice = device("0011",  "10.0.2.15") #(self, id,  masterIP)create device instance to actually run in background and gather data
+            option = "standBy"
+
 
 
         if case ('standBy'):
@@ -55,13 +56,13 @@ while(True):
             if option == "1":
                 option = "Upload File"
             if option == "2":
-                option == "Download File"
-            break
+                option = "Download File"
+
 
 
 
         if case('Download File'):  # need to load the object created in the case of "first start"
-            pass
+            option = "standBy"
 
 
 
