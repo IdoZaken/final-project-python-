@@ -8,8 +8,8 @@ import json
 root = os.getcwd()
 
 #flags
-FAILED = b'0'
-SUCCCESS = b'1'
+FAILED = b'00'
+SUCCCESS = b'01'
 LOGGED = b'11'
 
 #will update user config
@@ -38,7 +38,9 @@ def send_data(clientsocket,data, size = None):
         #calculate data size and incode it before send
         size = str(len(data)).encode('utf8')
     else:
-        size = str(size.encode('utf8'))
+        size = str(size).encode('utf8')
+
+    size = size.zfill(16)
     #send data size
     clientsocket.sendall(size)
     #send data
@@ -80,7 +82,7 @@ def client_thread(clientsocket, ip, port,serverID , MAX_BUFFER = 4096):       # 
 
     while True:
         #waiting for commend to recvice
-        option = clientsocket.recv(3)
+        option = clientsocket.recv(4)
 
         #pick action base on option
         with Switch(option) as case:
