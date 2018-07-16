@@ -28,9 +28,10 @@ while(True):
           "3 : download\n"
           "4 : go to\n"
           "5 : up load\n"
-          "6 : memory\n"
-          "7 : delete\n"
-          "8 : exit")
+          "6 : delete\n"
+          "7 : memory\n"
+          "8 : back\n"
+          "9 : exit")
 
     option = input("enter chosen number: \n")
 
@@ -47,10 +48,12 @@ while(True):
     elif option == "5":
         option = "up load"
     elif option == "6":
-        option = "memory"
-    elif option == "7":
         option = "delete"
+    elif option == "7":
+        option = "memory"
     elif option == "8":
+        option = "back"
+    elif option == "9":
         option = "exit"
 
     with switch(option) as case:
@@ -72,14 +75,17 @@ while(True):
         if case("up load"):
             print("5  up load ;-)")
 
-        if case("memory"):
+        if case("delete"):
             print("6  memory ;-)")
 
-        if case("delete"):
+        if case("memory"):
             print("7  delete ;-)")
 
+        if case("back"):
+            print("8 back;-)")
+
         if case("exit"):
-            print("8 exit")
+            print("9 exit")
             break
 
 print("eoc")
