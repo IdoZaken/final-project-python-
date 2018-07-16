@@ -12,8 +12,15 @@ import socket
 import os
 import time
 from pathlib import Path
+from switch import Switch as switch
 
+#flags
+FAILED = b'00'
+SUCCCESS = b'01'
+LOGGED = b'11'
 
+#incoming buffer
+MAX_BUFFER = 4096
 
 class device(ABC):
 
@@ -21,6 +28,23 @@ class device(ABC):
     def __init__(self,  ID, IP):
         self.ID = ID
         self.masterIP = IP
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        while True:
+            try:
+                self.sock.connect((self.masterIP, 5000))
+                break
+            except:
+                print("Failed to connect, auto try again after 10sec")
+                time.sleep(10)
+                continue
+        self.sendName(self.ID)
+        x = self.respond()
+        print(x)
+        if x[1] == b'01':
+            self.sock.sendall(bin(int(input("hello new user, enter folder capacity")))[2:].zfill(16).encode('utf8'))
+            x = self.respond()
+        if x[1] == b'11':
+            print("user connected")
 
 
     def save(self, path):
@@ -50,72 +74,112 @@ class device(ABC):
             pass
 
 
-    def sendData(self, path): # send data from device to Master
+    def respond(self):
+        size = 0
+        buffer = ""
+        a = self.sock.recv(2)
+        if a == FAILED:
+            self.sock.recv(2)
+            size = self.sock.recv(16)
+            size = int(size.decode('utf8'))
+            buffer += self.sock.recv(size).decode('utf8')
+            return (False,buffer)
+        elif a == SUCCCESS or a == LOGGED:
+            return (True,a)
+        else:
+            print (a)
+            return (False,"something went wrong")
 
-        total_size =0
+    def sendCommand(self, option):
+        with switch(option) as case:
+            if case("new folder"):
+                self.sock.sendall(b'0000')
+                self.sendName()
+                self.respond()
 
-        host = self.masterIP                                #get the IP of the master
-        port = 5000        
+            if case("files list"):
+                self.sock.sendall(b'0001')
+                self.respond()
+                return self.resiveData(0)
 
-        dirs = os.listdir(path)
+            if case("search"):
+                self.sock.sendall(b'0010')
+                self.sendName()
+                x = self.respond()
+                if not x[0]:
+                    return x[1]
+                return self.resiveData(0)
 
-        while True:                                          #check whether the connection succeed
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            try:
-                sock.connect((host, port))
-                break
-            except:                                         #if not, probably server on load situation, wait and try again
-                print("Falied to connect, auto try again after 10sec")
-                time.sleep(10)
-                continue
+            if case("download"):
+                self.sock.sendall(b'0011')
+                file = input("enter folder full path:")
+                self.sendName(file)
+                x = self.respond()
+                if x[0]:
+                    self.resiveData(1,file)
+                else:
+                    return x[1]
 
-        print("CONNECTED TO MASTER ON" , self.masterIP)
-        for files in dirs:
-            filename = files
-            size = len(filename)                        #the lines on the file
-            size = bin(size)[2:].zfill(16)              # change to bin and fill to not lose zeros
-            sock.sendall(size.encode('utf8'))            # encode so we could send it
-            sock.sendall(filename.encode('utf8'))
+            if case("go to"):
+                self.sock.sendall(b'0100')
+                self.sendName()
+                return self.respond()[1]
 
-            filename = os.path.join(path, filename)     #full file name
-            filesize = os.path.getsize(filename)        #actual size after comression and reduction
-            total_size +=filesize
-            filesize = bin(filesize)[2:].zfill(32)       # change to bin and fill to not lose zeros
-            sock.sendall(filesize.encode('utf8'))
+            if case("up load"):
+                self.sock.sendall(b'0101')
+                for file in os.listdir('sendFiles'):
+                    self.sendName(file)
+                    with open("sendFiles\\"+file, 'rb') as f:
+                        x = f.read()
+                        self.sock.sendall(bin(len(x))[2:].encode('utf8').zfill(32))
+                        y = self.respond()
+                        if y[0]:
+                            self.sock.sendall(x)
+                            self.respond()
+                        else:
+                            return y[1]
+                self.sendName('')
 
-            file_to_send = open(filename, 'rb')
+            if case("delete"):
+                self.sock.sendall(b'0110')
 
-            l = file_to_send.read()
-            sock.sendall(l)
-            file_to_send.close()
+            if case("memory"):
+                self.sock.sendall(b'0111')
 
-            conf = sock.recv(4096)                                  #recvied confirmation from server
+            if case("back"):
+                self.sock.sendall(b'1000')
+
+            if case("exit"):
+                self.sock.sendall(b'1001')
+                self.sock.close()
+
+    def sendName(self, arg = None):
+        if not arg:
+            arg = input("enter folder full path:")
+        size = bin(len(arg))[2:].zfill(16).encode('utf8')
+        print(size,type(size))
+        self.sock.sendall(size)
+        self.sock.sendall(arg.encode('utf8'))
+
+    def resiveData(self, type ,data = None):       #type 0 - encode, type 1 - file
+        buffer = ''
+        if type:
+            size = int(self.sock.recv(16).decode('utf8'))
+            left = size
+
+            with open("Received\\" + data, 'wb+') as f:
+                while left > 0:
+                    if left < MAX_BUFFER:
+                        f.write(self.sock.recv(left))
+                    else:
+                        f.write(self.sock.recv(MAX_BUFFER))
+                    left -= MAX_BUFFER
+
+        else:
+            size = self.sock.recv(16).decode('utf8')
+            size = int(size)
+            buffer += self.sock.recv(size).decode('utf8')
+        return buffer
 
 
-            if str(total_size) != conf.decode('utf8'):              #in case connection lost during sendig
-                print("Falied to send all files, auto try again after 5sec")
-                time.sleep(5)
-                self.sendData('sendFiles')
-
-        sock.close()
-        print("ALL FILES RECEIVED SUCCESSFULLY")
-
-        filelist = [f for f in os.listdir(path)]                       #clear the storage of client
-        for f in filelist:
-            os.remove(os.path.join(path, f))
-
-        print("File sent!")
-
-
-    def change_name(self):
-        for files in os.listdir():
-            filename, file_extension = os.path.splitext(files)
-            date = datetime.datetime.now().strftime("%d%m%Y-%H%M%S")
-            temp_name = filename + "-" + self.ID + "-" + date + "." + file_extension
-            os.rename(files, temp_name)
-
-
-
-
-    # def download_file(self):
 
